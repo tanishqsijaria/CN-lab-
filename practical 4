@@ -1,0 +1,58 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 10143
+#define BUFFER_SIZE 1024
+
+int main() {
+    int sock;
+    struct sockaddr_in serv_addr;
+    char buffer[BUFFER_SIZE];
+    FILE *fp;
+
+    char filename[256] = "CN143prac2.txt"; // File to send
+
+    // Create UDP socket
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("Socket creation failed");
+        exit(1);
+    }
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+    inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+
+    // Send file name first
+    sendto(sock, filename, strlen(filename), 0,
+           (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+    printf("Sending file: %s\n", filename);
+
+    // Open file
+    fp = fopen(filename, "rb");
+    if (!fp) {
+        perror("File open failed");
+        exit(1);
+    }
+
+    // Send file content
+    ssize_t bytes;
+    while ((bytes = fread(buffer, 1, BUFFER_SIZE, fp)) > 0) {
+        sendto(sock, buffer, bytes, 0,
+               (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+        buffer[bytes] = '\0';
+        printf("%s", buffer); // Live print
+    }
+
+    // Signal end of file
+    sendto(sock, "", 0, 0, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+
+    printf("\nFile sent successfully.\n");
+
+    fclose(fp);
+    close(sock);
+    return 0;
+}
